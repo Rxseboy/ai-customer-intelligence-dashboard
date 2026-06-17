@@ -19,7 +19,7 @@ data/processed/
 *.parquet
 
 # ML Model files (binary, besar)
-models/*.pkl
+# (models/*.pkl diizinkan agar bisa diakses oleh Hugging Face)
 models/logs/
 mlruns/
 *.db
