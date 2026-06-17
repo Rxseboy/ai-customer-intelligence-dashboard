@@ -1,0 +1,36 @@
+{
+  "dashboard": {
+    "title": "Customer Intelligence Dashboard",
+    "description": "Premium customer intelligence dashboard — revenue, RFM, products, insights, and an AI analyst.",
+    "revenue_overview": "Revenue Overview",
+    "customer_rfm": "Customer RFM",
+    "product_analytics": "Product Analytics",
+    "business_insights": "Business Insights",
+    "ai_analyst": "AI Analyst",
+    "coming_soon": "Coming up next — building incrementally."
+  },
+  "revenue": {
+    "total_revenue": "Total Revenue",
+    "total_orders": "Total Orders",
+    "avg_order_value": "Avg Order Value",
+    "unique_customers": "Unique Customers",
+    "revenue_and_orders": "Revenue & Orders",
+    "trend_desc": "Weekly or Monthly trend over the selected period",
+    "order_status": "Order Status",
+    "status_desc": "Breakdown by status",
+    "period_summary": "Period Summary",
+    "period": "Period",
+    "revenue": "Revenue",
+    "orders": "Orders",
+    "aov": "AOV",
+    "no_data": "No data for selected range."
+  },
+  "chat": {
+    "ask_ai": "Ask AI Analyst",
+    "description": "Natural language query against your warehouse.",
+    "thinking": "Thinking…",
+    "failed": "Failed to query. Try again.",
+    "placeholder": "Ask anything about your data…",
+    "hint": "e.g. \"Top 5 customers by revenue this month\""
+  }
+}

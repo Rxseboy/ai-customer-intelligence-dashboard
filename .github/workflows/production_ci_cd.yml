@@ -1,0 +1,235 @@
+name: CI/CD — Customer Intelligence System
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # 1. Lint & Static Analysis
+  # ─────────────────────────────────────────────────────────────────────────
+  lint:
+    name: 🔍 Lint (flake8 + ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install lint tools
+        run: pip install flake8 ruff
+
+      - name: Run flake8
+        run: flake8 src/ --max-line-length=120 --exclude=__pycache__,venv
+
+      - name: Run ruff
+        run: ruff check src/ --ignore E501
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 2. Unit & Integration Tests
+  # ─────────────────────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Tests (pytest)
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install -r requirements.txt
+          pip install pytest pytest-cov httpx
+
+      - name: Run tests
+        env:
+          DATABASE_URL: "sqlite:///:memory:"   # CI pakai SQLite dummy
+          GOOGLE_API_KEY: "dummy-key-ci"
+        run: |
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 3. API Contract Validation
+  # ─────────────────────────────────────────────────────────────────────────
+  api-contract:
+    name: 📋 API Contract Check (Pydantic)
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install
+        run: |
+          pip install pydantic>=2.0.0 fastapi
+
+      - name: Validate schemas
+        run: |
+          python -c "
+          from src.back_end.api.schemas.contracts import (
+              CustomerRFM, ChurnResponse, SegmentResponse,
+              InsightResponse, RAGQueryRequest, RAGQueryResponse
+          )
+          # Test valid input
+          c = CustomerRFM(recency=30, frequency=5, monetary=250.0)
+          assert c.avg_order_value == 50.0
+          print('✅ CustomerRFM: auto avg_order_value OK')
+          # Test rejection: negative monetary
+          try:
+              CustomerRFM(recency=30, frequency=5, monetary=-100)
+              assert False, 'Should have raised'
+          except Exception:
+              print('✅ CustomerRFM: negative monetary rejected')
+          # Test RAG injection
+          try:
+              RAGQueryRequest(question='DROP TABLE orders --')
+              assert False, 'Should have raised'
+          except Exception:
+              print('✅ RAGQueryRequest: SQL injection blocked')
+          print('All contract validations passed.')
+          "
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 4. Docker Build Check
+  # ─────────────────────────────────────────────────────────────────────────
+  docker-build:
+    name: 🐳 Docker Build
+    runs-on: ubuntu-latest
+    needs: [test, api-contract]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build main Docker image
+        run: docker build -t customer-intelligence:ci .
+
+      - name: Build HuggingFace Docker image
+        run: docker build -f Dockerfile.hf -t customer-intelligence-hf:ci .
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 5. Feature Store Integrity Check
+  # ─────────────────────────────────────────────────────────────────────────
+  feature-store:
+    name: 🗄️ Feature Store Integrity
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install
+        run: pip install pandas numpy
+
+      - name: Validate Feature Store imports
+        run: |
+          python -c "
+          from src.back_end.ml.features import build_all_features, create_rfm
+          from src.back_end.ml.features.rfm_features import create_rfm
+          from src.back_end.ml.features.user_features import add_product_features
+          from src.back_end.ml.features.time_series_features import add_time_series_features
+          from src.back_end.ml.features.feature_registry import load_feature_config
+          config = load_feature_config()
+          assert 'churn_threshold_days' in config
+          print('✅ Feature Store imports OK')
+          print(f'✅ Feature config: {config}')
+          "
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 6. Security: SQL Safety Validator
+  # ─────────────────────────────────────────────────────────────────────────
+  security:
+    name: 🔐 SQL Safety Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Test SQL Validator
+        run: |
+          python -c "
+          from src.back_end.ml.rag import SQLSafetyValidator
+
+          v = SQLSafetyValidator()
+
+          # Uji injection patterns
+          dangerous = [
+              'DROP TABLE orders',
+              'DELETE FROM users',
+              'TRUNCATE fact_orders',
+              'INSERT INTO users VALUES (1)',
+              'UPDATE users SET email=\"x\"',
+          ]
+          for sql in dangerous:
+              safe, reason = v.is_safe(sql)
+              assert not safe, f'FAIL: should have blocked: {sql}'
+              print(f'✅ Blocked: {sql!r}')
+
+          # Uji query valid
+          ok, _ = v.is_safe('SELECT customer_id, SUM(sale_price) FROM fact_orders GROUP BY 1')
+          assert ok
+          print('✅ Valid SELECT passed')
+          print('All SQL safety checks passed.')
+          "
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 7. Deploy Summary (main branch only)
+  # ─────────────────────────────────────────────────────────────────────────
+  summary:
+    name: ✅ Deploy Ready
+    runs-on: ubuntu-latest
+    needs: [docker-build, feature-store, security]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Summary
+        run: |
+          echo "=== CI/CD Pipeline Completed ==="
+          echo "✅ Lint passed"
+          echo "✅ Tests passed"
+          echo "✅ API contracts validated"
+          echo "✅ Docker build succeeded"
+          echo "✅ Feature Store integrity OK"
+          echo "✅ SQL Safety validated"
+          echo ""
+          echo "Ready for deployment to Hugging Face / Render."

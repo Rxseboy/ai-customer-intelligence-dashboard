@@ -1,0 +1,12 @@
+# Docker ignore — jangan copy ke image
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+data/raw/
+data/processed/
+.git/
+.gitignore
+pipeline.log
+*.ipynb

@@ -1,0 +1,19 @@
+# Requirements khusus untuk Docker Airflow image
+# Terpisah dari requirements.txt; diinstall lebih awal saat build Docker
+# Dioptimalkan untuk Python 3.11 + Airflow 2.9.1
+
+# Google BigQuery
+google-cloud-bigquery>=3.14.0
+google-cloud-bigquery-storage>=2.24.0
+db-dtypes>=1.2.0
+
+# Data processing — harus konsisten dengan requirements.txt
+pandas>=2.0.0
+pyarrow>=14.0.0
+
+# PostgreSQL — SQLAlchemy 2.x wajib untuk Python 3.11
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+
+# Config
+python-dotenv>=1.0.0

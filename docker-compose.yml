@@ -1,0 +1,207 @@
+# ==============================================================================
+# docker-compose.yml
+# Apache Airflow 2.9.1 dengan LocalExecutor + Docker
+#
+# CARA PAKAI:
+#   1. Pastikan Docker Desktop sudah running
+#   2. docker compose up airflow-init   (sekali saja — init database + user)
+#   3. docker compose up -d             (jalankan semua service)
+#   4. Buka http://localhost:8080
+#      Username: admin | Password: admin
+# ==============================================================================
+
+x-airflow-common: &airflow-common
+  build: .
+  image: ecommerce-v2-airflow:2.9.1
+  environment:
+    # Airflow Core
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+
+    # Database Airflow (metadata)
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow:5432/airflow
+
+    # API + Webserver
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-ecommerce-portfolio-secret-key-2024}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-ecommerce-portfolio-secret-key-2024}
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+
+    # Admin user
+    _AIRFLOW_WWW_USER_CREATE: "true"
+    _AIRFLOW_WWW_USER_USERNAME: admin
+    _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+    _AIRFLOW_WWW_USER_FIRSTNAME: Admin
+    _AIRFLOW_WWW_USER_LASTNAME: User
+    _AIRFLOW_WWW_USER_EMAIL: admin@example.com
+    _AIRFLOW_WWW_USER_ROLE: Admin
+
+    # Python Path — agar 'from src.back_end...' bisa diimport
+    PYTHONPATH: /opt/airflow
+
+    # Google BigQuery
+    GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/key.json
+
+    # Database Data Warehouse (dari .env)
+    DB_USER: ${DB_USER:-postgres}
+    DB_PASSWORD: ${DB_PASSWORD:-admin}
+    DB_HOST: ${DB_HOST:-host.docker.internal}
+    DB_PORT: "${DB_PORT:-5432}"
+    DB_NAME: ${DB_NAME:-postgres}
+    DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:admin@host.docker.internal:5432/postgres}
+    DATABASE_URL_READONLY: ${DATABASE_URL_READONLY:-}
+
+    # MLflow
+    MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./src:/opt/airflow/src
+    - ./src/back_end/etl:/opt/airflow/etl
+    - ./src/back_end/config:/opt/airflow/config
+    - ./key.json:/opt/airflow/key.json
+    - ./.env:/opt/airflow/.env
+    - ./data:/opt/airflow/data
+    - ./models:/opt/airflow/models
+    - ./reports:/opt/airflow/reports
+    - ./scripts:/opt/airflow/scripts
+    - airflow-logs:/opt/airflow/logs
+  depends_on:
+    postgres-airflow:
+      condition: service_healthy
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  # PostgreSQL untuk metadata Airflow (port 5433 agar tidak crash dengan PG kamu di 5432)
+  postgres-airflow:
+    image: postgres:15
+    container_name: airflow-metadata-db-v2
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-airflow-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "airflow" ]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # Airflow Init — jalankan SEKALI untuk setup DB dan user
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow-init-v2
+    entrypoint: [ "/bin/bash", "/opt/airflow/scripts/init_airflow.sh" ]
+    restart: "no"
+
+  # Airflow Standalone — menjalankan webserver + scheduler + api-server sekaligus
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver-v2
+    command: standalone
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:8080/api/v1/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  # ==============================================================================
+  # 🌐 FASTAPI BACKEND
+  # ==============================================================================
+  api:
+    build: .
+    container_name: customer-intelligence-api-v2
+    command: [ "uvicorn", "src.back_end.api.main:app", "--host", "0.0.0.0", "--port", "10000" ]
+    ports:
+      - "10000:10000"
+    environment:
+      - PYTHONPATH=/opt/airflow
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/airflow/key.json
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-admin}
+      - DB_HOST=${DB_HOST:-postgres-datawarehouse-v2}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-postgres}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - DATABASE_URL_READONLY=${DATABASE_URL_READONLY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      - API_KEY=${API_KEY:-your-secure-api-key-here}
+    volumes:
+      - ./key.json:/opt/airflow/key.json
+      - ./.env:/opt/airflow/.env
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+      - ./reports:/opt/airflow/reports
+      - ./src:/opt/airflow/src
+    depends_on:
+      - mlflow
+    restart: unless-stopped
+
+  # ==============================================================================
+  # 🌐 REACT FRONTEND
+  # The React/Vite dashboard (src/frontend/) is run separately in dev mode.
+  #
+  #   cd src/frontend
+  #   npm install
+  #   npm run dev        → http://localhost:5173
+  #
+  # For production, build and serve statically:
+  #   npm run build      → dist/ folder served via nginx or Vercel
+  # ==============================================================================
+
+
+  # ==============================================================================
+  # 🔬 MLFLOW TRACKING SERVER
+  # Buka http://localhost:5000 untuk inspect experiment runs
+  # ==============================================================================
+  mlflow:
+    image: python:3.11-slim
+    container_name: mlflow-tracking-v2
+    command: >
+      bash -c "pip install mlflow psycopg2-binary -q &&
+               mlflow server
+               --backend-store-uri sqlite:///mlflow/mlflow.db
+               --default-artifact-root /mlflow/artifacts
+               --host 0.0.0.0
+               --port 5000"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    restart: unless-stopped
+
+  # ==============================================================================
+  # 🗄️ LOCAL DATA WAREHOUSE (Opsional)
+  # Jika Anda menggunakan ".env" Opsi 2, database akan ditaruh di dalam container ini.
+  # Jika menggunakan Supabase, container ini tidak akan terpakai oleh Airflow.
+  # ==============================================================================
+  postgres-datawarehouse:
+    image: postgres:15
+    container_name: postgres-datawarehouse-v2
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin}
+      POSTGRES_DB: ${DB_NAME:-thelook_ecommerce}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-warehouse-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres-airflow-data:
+  airflow-logs:
+  postgres-warehouse-data:
+  mlflow-data:

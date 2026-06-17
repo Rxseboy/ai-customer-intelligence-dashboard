@@ -1,0 +1,36 @@
+{
+  "dashboard": {
+    "title": "Dasbor Customer Intelligence",
+    "description": "Dasbor customer intelligence premium — pendapatan, RFM, produk, wawasan, dan analis AI.",
+    "revenue_overview": "Ringkasan Pendapatan",
+    "customer_rfm": "RFM Pelanggan",
+    "product_analytics": "Analisis Produk",
+    "business_insights": "Wawasan Bisnis",
+    "ai_analyst": "Analis AI",
+    "coming_soon": "Akan segera hadir — dibangun secara bertahap."
+  },
+  "revenue": {
+    "total_revenue": "Total Pendapatan",
+    "total_orders": "Total Pesanan",
+    "avg_order_value": "Rata-rata Nilai Pesanan",
+    "unique_customers": "Pelanggan Unik",
+    "revenue_and_orders": "Pendapatan & Pesanan",
+    "trend_desc": "Tren Mingguan atau Bulanan pada periode yang dipilih",
+    "order_status": "Status Pesanan",
+    "status_desc": "Rincian berdasarkan status",
+    "period_summary": "Ringkasan Periode",
+    "period": "Periode",
+    "revenue": "Pendapatan",
+    "orders": "Pesanan",
+    "aov": "AOV",
+    "no_data": "Tidak ada data untuk rentang yang dipilih."
+  },
+  "chat": {
+    "ask_ai": "Tanya Analis AI",
+    "description": "Kueri bahasa alami terhadap gudang data Anda.",
+    "thinking": "Berpikir…",
+    "failed": "Gagal melakukan kueri. Coba lagi.",
+    "placeholder": "Tanyakan apa saja tentang data Anda…",
+    "hint": "cth. \"5 pelanggan teratas berdasarkan pendapatan bulan ini\""
+  }
+}

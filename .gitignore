@@ -1,0 +1,58 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Secrets — JANGAN commit ke GitHub
+.env
+key.json
+admin.md
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Data files (besar, tidak perlu di-commit)
+data/raw/
+data/processed/
+*.parquet
+
+# ML Model files (binary, besar)
+models/*.pkl
+models/logs/
+mlruns/
+*.db
+mlflow.db
+docs/architecture.png
+
+# Logs
+logs/
+*.log
+pipeline.log
+
+# Docker volumes
+postgres-airflow-data/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Temporary
+*.tmp
+*.bak
+
+# Packages
+*.egg-info/
+build/
+dist/
+
+# Agent configurations
+.agents/
