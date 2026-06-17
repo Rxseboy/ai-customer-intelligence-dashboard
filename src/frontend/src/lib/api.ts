@@ -232,7 +232,7 @@ export const api = {
   topCustomers: (limit?: number) => request<{customers: RFMRow[]}>("/customers/top", { query: { limit } }).then(r => r.customers),
 
   // Insights
-  insights: (r?: DateRange, segments?: string[]) => request<InsightResponse>("/insights", { query: { ...r, segments: segments?.join(",") } }),
+  insights: (r?: DateRange, segments?: string[]) => request<InsightResponse>("/api/insights/kpis", { query: { ...r, segments: segments?.join(",") } }),
   segmentsSummary: () => request<{segments: unknown[]}>("/segments/summary").then(r => r.segments),
   dateBounds: () => request<DateBounds>("/api/insights/date-bounds"),
   kpis: (r: DateRange, segments?: string[]) => request<KpisResponse>("/api/insights/kpis", { query: { ...r, segments: segments?.join(",") } }),

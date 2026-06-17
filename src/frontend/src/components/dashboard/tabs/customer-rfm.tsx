@@ -47,11 +47,7 @@ export function CustomerRFMTab() {
     staleTime: 5 * 60 * 1000, // cache for 5 minutes
   });
 
-  const topCustomersQ = useQuery({
-    queryKey: ["topCustomers"],
-    queryFn: () => api.topCustomers(10),
-    staleTime: 10 * 60 * 1000,
-  });
+
 
   const allRows = rfmQ.data ?? [];
 
@@ -107,12 +103,12 @@ export function CustomerRFMTab() {
     return { rows: filteredRows, segCounts: computedSegCounts, segRevenue: computedSegRevenue, pareto: finalPareto };
   }, [allRows, selectedSegKeys]);
 
-  const top10 = topCustomersQ.data ?? [];
 
-  if (rfmQ.isLoading || topCustomersQ.isLoading) {
+
+  if (rfmQ.isLoading) {
     return <div className="grid min-h-[300px] place-items-center text-sm text-muted-foreground">Loading RFM data…</div>;
   }
-  if (rfmQ.isError || topCustomersQ.isError) {
+  if (rfmQ.isError) {
     return <div className="grid min-h-[300px] place-items-center text-sm text-destructive">Failed to load RFM data. Check API connection.</div>;
   }
 
@@ -283,40 +279,6 @@ export function CustomerRFMTab() {
         </div>
       </div>
 
-      {/* Top 10 customers */}
-      <div className="glass rounded-2xl p-5">
-        <h3 className="mb-3 text-sm font-semibold">Top 10 Customers by Revenue</h3>
-        <div className="overflow-hidden rounded-lg border border-border/50">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-background/40 hover:bg-background/40">
-                <TableHead>Customer ID</TableHead>
-                <TableHead className="text-right">Revenue</TableHead>
-                <TableHead className="text-right">Orders</TableHead>
-                <TableHead className="text-right">Recency (days)</TableHead>
-                <TableHead>Segment</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {top10.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">No customer data loaded.</TableCell>
-                </TableRow>
-              ) : (
-                top10.map((row) => (
-                  <TableRow key={row.customer_id}>
-                    <TableCell className="font-medium">{row.customer_id}</TableCell>
-                    <TableCell className="text-right">{currency(Number(row.monetary ?? 0))}</TableCell>
-                    <TableCell className="text-right">{number(Number(row.frequency ?? 0))}</TableCell>
-                    <TableCell className="text-right">{Number(row.recency ?? 0)}</TableCell>
-                    <TableCell>{row.segment}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
     </div>
   );
 }
