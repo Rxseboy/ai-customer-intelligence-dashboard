@@ -1,39 +1,31 @@
 # ==============================================================================
-# UNIFIED DOCKERFILE
-# Mencakup: Apache Airflow (ETL) + FastAPI (API) + React (Served separately or statically)
-# Python: 3.11 | Airflow: 2.9.1
+# HUGGING FACE DOCKERFILE OVERRIDE
+# Menarik environment ringan dan instalasi paket minimal untuk FastAPI saja
 # ==============================================================================
-FROM apache/airflow:2.9.1-python3.11
+FROM python:3.10-slim
 
-USER root
+WORKDIR /app
 
-# Install system dependencies (psycopg2, xgboost, gcc)
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-       libpq-dev \
-       gcc \
-       build-essential \
-    && apt-get clean \
+# 1. Install System Dependensi
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
-USER airflow
+# 2. Copy Requirements
+COPY requirements.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Salin requirements
-COPY requirements-airflow.txt /requirements-airflow.txt
-COPY requirements.txt /requirements.txt
+# 3. Copy Seluruh Proyek
+COPY . .
 
-# Install semua dependensi
-# airflow-requirements dulu (BigQuery, SQLAlchemy, Pandas)
-# kemudian requirements.txt (ML stack, API, Dashboard)
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r /requirements-airflow.txt \
-    && pip install --no-cache-dir -r /requirements.txt
+# 4. Hugging Face Spaces MEWAJIBKAN port layanan berada di angka 7860
+EXPOSE 7860
 
-# Salin seluruh kode proyek ke direktori default Airflow (/opt/airflow)
-COPY --chown=airflow:0 . /opt/airflow
+# 5. Permission fallback
+RUN mkdir -p /tmp/cache && chmod 777 /tmp/cache
+ENV NUMBA_CACHE_DIR=/tmp/cache
 
-# Working Directory
-WORKDIR /opt/airflow
-
-# PYTHONPATH — agar 'from src.back_end...' bisa diimport dari mana saja
-ENV PYTHONPATH="/opt/airflow"
+# 6. Override Perintah Utama! (Jalankan Uvicorn FastAPI)
+CMD ["uvicorn", "src.back_end.api.main:app", "--host", "0.0.0.0", "--port", "7860"]
