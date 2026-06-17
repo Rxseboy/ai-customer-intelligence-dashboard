@@ -80,11 +80,12 @@ app.add_middleware(
     expose_headers=["X-API-Key"],
 )
 
-try:
-    from prometheus_fastapi_instrumentator import Instrumentator
-    Instrumentator().instrument(app).expose(app)
-except ImportError:
-    print("[API] prometheus-fastapi-instrumentator not installed, metrics disabled.")
+# Prometheus metrics are disabled to prevent routing conflicts with newer FastAPI versions
+# try:
+#     from prometheus_fastapi_instrumentator import Instrumentator
+#     Instrumentator().instrument(app).expose(app)
+# except ImportError:
+#     print("[API] prometheus-fastapi-instrumentator not installed, metrics disabled.")
 
 # Register Routers
 app.include_router(health.router)
