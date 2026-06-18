@@ -16,7 +16,7 @@ export function AiClvTab() {
   });
 
   const driftQ = useQuery({ queryKey: ["drift"], queryFn: () => api.drift() });
-  const insightsQ = useQuery({ queryKey: ["insights", range, selectedSegKeys], queryFn: () => api.insights(range, selectedSegKeys) });
+  const insightsQ = useQuery({ queryKey: ["insights", range, selectedSegKeys], queryFn: () => api.kpis(range, selectedSegKeys) });
 
   const churnRate = insightsQ.data?.churn_rate_pct;
   const totalCustomers = insightsQ.data?.total_customers;
@@ -216,3 +216,4 @@ export function AiClvTab() {
     </div>
   );
 }
+

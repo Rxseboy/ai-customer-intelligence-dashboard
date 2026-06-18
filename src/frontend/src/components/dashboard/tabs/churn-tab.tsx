@@ -160,8 +160,8 @@ export function ChurnTab() {
   });
 
   const insightsQ = useQuery({
-    queryKey: ["insights", range, selectedSegKeys],
-    queryFn: () => api.insights(range, selectedSegKeys),
+    queryKey: ["kpis", range, selectedSegKeys],
+    queryFn: () => api.kpis(range, selectedSegKeys),
     staleTime: 5 * 60 * 1000,
   });
 

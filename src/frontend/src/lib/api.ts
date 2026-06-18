@@ -228,8 +228,7 @@ export const api = {
   recommendations: (customer_id: number, limit?: number) =>
     request<unknown>("/predict/recommendations", { query: { customer_id, limit } }),
 
-  // Customers
-  topCustomers: (limit?: number) => request<{customers: RFMRow[]}>("/customers/top", { query: { limit } }).then(r => r.customers),
+  // Customers — top customers derived from RFM data (endpoint removed, use rfm() instead)
 
   // Insights
   insights: (r?: DateRange, segments?: string[]) => request<InsightResponse>("/api/insights/kpis", { query: { ...r, segments: segments?.join(",") } }),
