@@ -65,16 +65,20 @@ function DashboardPage() {
               ))}
             </TabsList>
 
-            <ErrorBoundary>
-              <TabsContent value="revenue">
+            <TabsContent value="revenue">
+              <ErrorBoundary label="Revenue Overview">
                 {activeTab === "revenue" && <RevenueOverviewTab />}
-              </TabsContent>
+              </ErrorBoundary>
+            </TabsContent>
 
-              <TabsContent value="rfm">
+            <TabsContent value="rfm">
+              <ErrorBoundary label="Customer RFM">
                 {activeTab === "rfm" && <CustomerRFMTab />}
-              </TabsContent>
+              </ErrorBoundary>
+            </TabsContent>
 
-              <TabsContent value="products">
+            <TabsContent value="products">
+              <ErrorBoundary label="Product Analytics">
                 {activeTab === "products" && (
                   <div className="space-y-10 animate-in fade-in duration-300">
                     <ProductAnalyticsTab />
@@ -82,20 +86,27 @@ function DashboardPage() {
                     <RecommendationTab />
                   </div>
                 )}
-              </TabsContent>
+              </ErrorBoundary>
+            </TabsContent>
 
-              <TabsContent value="churn">
+            <TabsContent value="churn">
+              <ErrorBoundary label="Churn Analytics">
                 {activeTab === "churn" && <ChurnTab />}
-              </TabsContent>
+              </ErrorBoundary>
+            </TabsContent>
 
-              <TabsContent value="clv">
+            <TabsContent value="clv">
+              <ErrorBoundary label="Analytics & AI">
                 {activeTab === "clv" && <AiClvTab />}
-              </TabsContent>
+              </ErrorBoundary>
+            </TabsContent>
 
-              <TabsContent value="ai">
+            <TabsContent value="ai">
+              <ErrorBoundary label="AI Analyst">
                 {activeTab === "ai" && <AIAnalystTab />}
-              </TabsContent>
-            </ErrorBoundary>
+              </ErrorBoundary>
+            </TabsContent>
+
           </Tabs>
         </main>
         {activeTab !== "ai" && <ChatFab />}

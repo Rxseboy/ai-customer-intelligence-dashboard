@@ -2,7 +2,7 @@ import React from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer,
-  Tooltip, XAxis, YAxis, PieChart, Pie, LineChart, Line, ReferenceLine,
+  Tooltip, XAxis, YAxis, PieChart, Pie, ReferenceLine,
 } from "recharts";
 import { AlertTriangle, TrendingDown, Users, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -186,7 +186,7 @@ export function ChurnTab() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const rfmData = rfmQ.data ?? [];
+  const rfmData: any[] = Array.isArray(rfmQ.data) ? rfmQ.data : [];
   const insights = insightsQ.data;
 
   // Aggregate customer counts and revenue per segment from RFM bins
@@ -294,7 +294,7 @@ export function ChurnTab() {
                   />
                   <ReferenceLine x={50} stroke="var(--color-destructive)" strokeDasharray="4 2" strokeWidth={1.5} />
                   <Bar dataKey="churnRisk" name="Churn Risk %" radius={[0, 6, 6, 0]} maxBarSize={28} isAnimationActive={false}>
-                    {segAgg.map((e) => (
+                    {(segAgg ?? []).map((e) => (
                       <Cell key={e.segment} fill={SEGMENT_COLORS[e.segment] ?? "var(--color-chart-3)"} />
                     ))}
                   </Bar>
@@ -327,7 +327,7 @@ export function ChurnTab() {
                     }}
                   />
                   <Pie
-                    data={segAgg}
+                    data={segAgg.length > 0 ? segAgg : [{segment: "No data", customers: 1}]}
                     dataKey="customers"
                     nameKey="segment"
                     innerRadius={55}
@@ -337,8 +337,8 @@ export function ChurnTab() {
                     strokeWidth={2}
                     isAnimationActive={false}
                   >
-                    {segAgg.map((e) => (
-                      <Cell key={e.segment} fill={SEGMENT_COLORS[e.segment] ?? "var(--color-chart-3)"} />
+                    {(segAgg.length > 0 ? segAgg : [{segment: "No data"}]).map((e) => (
+                      <Cell key={e.segment} fill={SEGMENT_COLORS[e.segment] ?? "var(--color-muted-foreground)"} />
                     ))}
                   </Pie>
                   <Legend wrapperStyle={{ fontSize: 11, color: "var(--color-muted-foreground)" }} />
@@ -377,7 +377,7 @@ export function ChurnTab() {
                   }}
                 />
                 <Bar dataKey="revenue" name="Revenue" radius={[6, 6, 0, 0]} maxBarSize={60} isAnimationActive={false}>
-                  {segAgg.map((e) => (
+                  {(segAgg ?? []).map((e) => (
                     <Cell key={e.segment} fill={SEGMENT_COLORS[e.segment] ?? "var(--color-chart-3)"} fillOpacity={0.85} />
                   ))}
                 </Bar>
