@@ -126,31 +126,54 @@ class AnalyticsService:
         try:
             engine = get_engine()
             cte, join_clause = cls._build_segment_cte(segments)
-            sql = cte + """
+
+            # Build SQL — single pass to get both revenue KPIs and churn metrics
+            if cte:
+                cte_prefix = cte + ", orders_base AS ("
+            else:
+                cte_prefix = "WITH orders_base AS ("
+
+            sql = cte_prefix + """
                 SELECT
-                    COALESCE(ROUND(CAST(SUM(sale_price) AS numeric), 2), 0.0)                      AS revenue,
-                    COUNT(DISTINCT order_id)                                                        AS orders,
-                    COUNT(DISTINCT customer_id)                                                     AS customers,
-                    COALESCE(ROUND(CAST(SUM(sale_price)/NULLIF(COUNT(DISTINCT order_id),0) AS numeric), 2), 0.0) AS aov
+                    customer_id,
+                    order_id,
+                    sale_price,
+                    order_date,
+                    CASE WHEN (CAST(:d2 AS DATE) - MAX(order_date) OVER (PARTITION BY customer_id)::date) > 90
+                         THEN 1.0 ELSE 0.0 END AS is_churn
                 FROM fact_orders
             """ + join_clause + """
-                WHERE order_date >= CAST(:d1 AS DATE) AND order_date < (CAST(:d2 AS DATE) + INTERVAL '1 day')
-                  AND status NOT IN ('Cancelled','Returned')
+                WHERE order_date >= CAST(:d1 AS DATE)
+                  AND order_date < (CAST(:d2 AS DATE) + INTERVAL '1 day')
+                  AND status NOT IN ('Cancelled', 'Returned')
+            )
+            SELECT
+                COUNT(DISTINCT customer_id)                                         AS total_customers,
+                COUNT(DISTINCT order_id)                                            AS total_orders,
+                COALESCE(ROUND(CAST(SUM(sale_price) AS numeric), 2), 0.0)          AS total_revenue,
+                COALESCE(ROUND(CAST(SUM(sale_price)
+                    / NULLIF(COUNT(DISTINCT order_id), 0) AS numeric), 2), 0.0)    AS aov,
+                COALESCE(AVG(is_churn) * 100, 0.0)                                 AS churn_rate_pct
+            FROM orders_base
             """
             q = text(sql)
             with engine.connect() as conn:
-                res = conn.execute(q, {"d1": d_from, "d2": d_to})
-                row = res.fetchone()
+                row = conn.execute(q, {"d1": d_from, "d2": d_to}).fetchone()
                 if row:
                     return {
-                        "revenue": float(row[0] or 0.0),
-                        "orders": int(row[1] or 0),
-                        "customers": int(row[2] or 0),
-                        "aov": float(row[3] or 0.0)
+                        "total_customers":  int(row[0] or 0),
+                        "orders":           int(row[1] or 0),
+                        "revenue":          float(row[2] or 0.0),
+                        "aov":              float(row[3] or 0.0),
+                        "churn_rate_pct":   round(float(row[4] or 0.0), 1),
                     }
         except Exception as e:
             print(f"[AnalyticsService] Error during KPIs fetch: {e}")
-        return {"revenue": 0.0, "orders": 0, "customers": 0, "aov": 0.0}
+        return {
+            "total_customers": 0, "orders": 0, "revenue": 0.0,
+            "aov": 0.0, "churn_rate_pct": 0.0,
+        }
+
 
     @classmethod
     def get_trend(cls, d_from: str, d_to: str, granularity: str = "Monthly", segments: str = None) -> dict:

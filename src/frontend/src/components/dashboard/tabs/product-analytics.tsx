@@ -33,19 +33,32 @@ function TooltipBox({ active, payload }: any) {
   );
 }
 
-// Custom treemap content block with gradient intensity
+// Custom treemap content block with high-contrast text
 function TreemapBlock(props: any) {
   const { x, y, width, height, name, value } = props;
   if (width < 30 || height < 20) return null;
   return (
     <g>
-      <rect x={x} y={y} width={width} height={height} style={{ fill: "var(--color-chart-1)", fillOpacity: 0.6, stroke: "var(--color-border)", strokeWidth: 2 }} />
+      <rect x={x} y={y} width={width} height={height}
+        style={{
+          fill: "var(--color-chart-1)",
+          fillOpacity: 0.75,
+          stroke: "var(--color-background)",
+          strokeWidth: 2,
+        }}
+      />
       {width > 60 && height > 30 && (
         <>
-          <text x={x + width / 2} y={y + height / 2 - 6} textAnchor="middle" fill="var(--color-foreground)" fontSize={11} fontWeight={600}>
+          <text x={x + width / 2} y={y + height / 2 - 8}
+            textAnchor="middle" fill="#ffffff" fontSize={11} fontWeight={700}
+            style={{ textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}
+          >
             {name}
           </text>
-          <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" fill="var(--color-muted-foreground)" fontSize={10}>
+          <text x={x + width / 2} y={y + height / 2 + 10}
+            textAnchor="middle" fill="#ffffff" fontSize={10} fontWeight={500}
+            style={{ textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}
+          >
             {currency(value)}
           </text>
         </>
@@ -90,9 +103,9 @@ export function ProductAnalyticsTab() {
       value: Number(c.revenue ?? 0),
     }));
 
-    // Top products
+    // Top products — show in a horizontal table instead of chart to avoid name overlap
     const topProducts = products.slice(0, 25).map((p) => ({
-      product: String(p.product ?? p.name ?? "Unknown").slice(0, 30),
+      product: String(p.product ?? p.name ?? "Unknown"),
       revenue: Number(p.revenue ?? 0),
       units: Number(p.units ?? 0),
     }));
@@ -114,25 +127,32 @@ export function ProductAnalyticsTab() {
     <div className="space-y-6">
       {/* Top products + Category treemap */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        {/* Top 25 Products Bar chart */}
-        <div className="glass rounded-2xl p-5 xl:col-span-2">
+        {/* Top 25 Products Table */}
+        <div className="glass rounded-2xl p-5 xl:col-span-2 overflow-auto">
           <h3 className="text-sm font-semibold">Top 25 Products by Revenue</h3>
-          <p className="text-xs text-muted-foreground">Sorted by total revenue in selected period</p>
-          <div className="mt-4 h-[500px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={topProducts}
-                layout="vertical"
-                margin={{ left: 16, right: 40 }}
-              >
-                <CartesianGrid horizontal={false} stroke="var(--color-border)" strokeDasharray="3 3" />
-                <XAxis type="number" tick={{ fill: "var(--color-muted-foreground)", fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
-                <YAxis dataKey="product" type="category" tick={{ fill: "var(--color-muted-foreground)", fontSize: 9 }} tickLine={false} axisLine={false} width={140} />
-                <Tooltip content={<TooltipBox />} />
-                <Bar dataKey="revenue" name="Revenue" fill="var(--color-chart-1)" fillOpacity={0.85} radius={[0, 6, 6, 0]} maxBarSize={20} isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <p className="text-xs text-muted-foreground mb-4">Sorted by total revenue in selected period</p>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-2 px-2 text-muted-foreground font-medium w-6">#</th>
+                <th className="text-left py-2 px-2 text-muted-foreground font-medium">Product</th>
+                <th className="text-right py-2 px-2 text-muted-foreground font-medium">Revenue</th>
+                <th className="text-right py-2 px-2 text-muted-foreground font-medium">Units</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topProducts.map((p, i) => (
+                <tr key={i} className="border-b border-border/40 hover:bg-white/5 transition-colors">
+                  <td className="py-2 px-2 text-muted-foreground">{i + 1}</td>
+                  <td className="py-2 px-2 font-medium max-w-[280px]">
+                    <span className="block truncate" title={p.product}>{p.product}</span>
+                  </td>
+                  <td className="py-2 px-2 text-right text-primary font-semibold">{currency(p.revenue)}</td>
+                  <td className="py-2 px-2 text-right text-muted-foreground">{number(p.units)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {/* Category Treemap */}

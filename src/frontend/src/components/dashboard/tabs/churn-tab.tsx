@@ -53,9 +53,16 @@ function TooltipBox({ active, payload }: any) {
 // ── Churn Risk Predictor Widget ──────────────────────────────────────────────
 
 function ChurnPredictor() {
-  const [recency, setRecency]   = React.useState(60);
-  const [frequency, setFreq]    = React.useState(2);
-  const [monetary, setMonetary] = React.useState(100);
+  const [recency, setRecency]   = React.useState(180);
+  const [frequency, setFreq]    = React.useState(1);
+  const [monetary, setMonetary] = React.useState(80);
+
+  // Preset scenarios for quick testing
+  const presets = [
+    { label: "🔴 High Risk",   recency: 300, frequency: 1,  monetary: 50,   desc: "Inactive 10+ months, 1 order, low spend" },
+    { label: "🟡 Medium Risk", recency: 90,  frequency: 3,  monetary: 200,  desc: "3 months idle, few orders" },
+    { label: "🟢 Low Risk",    recency: 7,   frequency: 20, monetary: 2000, desc: "Active buyer, high spend" },
+  ];
 
   const churnMut = useMutation({
     mutationFn: () => api.predictChurn({ recency, frequency, monetary }),
@@ -78,6 +85,20 @@ function ChurnPredictor() {
           <h3 className="text-sm font-semibold">Real-time Churn Predictor</h3>
           <p className="text-xs text-muted-foreground">XGBoost model — adjust inputs and predict</p>
         </div>
+      </div>
+
+      {/* Quick Presets */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {presets.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => { setRecency(p.recency); setFreq(p.frequency); setMonetary(p.monetary); }}
+            title={p.desc}
+            className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background/40 hover:bg-white/10 transition-colors"
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       <div className="space-y-3 mb-5">
