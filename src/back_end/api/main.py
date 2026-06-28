@@ -16,7 +16,7 @@ sys.path.insert(0, PROJECT_ROOT)
 from src.back_end.api.services.model_cache import ModelCache
 
 # Import Routers
-from src.back_end.api.routers import health, predictions, analytics, rag, monitoring
+from src.back_end.api.routers import health, predictions, analytics, rag, monitoring, customers
 
 _model_cache = ModelCache()
 
@@ -93,6 +93,7 @@ app.include_router(predictions.router)
 app.include_router(analytics.router)
 app.include_router(rag.router)
 app.include_router(monitoring.router)
+app.include_router(customers.router)
 
 
 @app.get("/", tags=["Root"])
