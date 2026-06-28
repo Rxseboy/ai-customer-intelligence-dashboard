@@ -1,7 +1,30 @@
 import json
+import time
+import threading
 from datetime import datetime
 from sqlalchemy import text
 from src.back_end.ml.data_loader import get_engine
+
+# ── Simple TTL in-memory cache ────────────────────────────────────────────────
+# Reduces DB hits when the frontend polls the same endpoint repeatedly.
+# Default TTL = 300 seconds (5 minutes). Thread-safe with a RLock.
+_CACHE: dict = {}
+_CACHE_LOCK = threading.RLock()
+_DEFAULT_TTL = 300  # seconds
+
+
+def _cache_get(key: str):
+    with _CACHE_LOCK:
+        entry = _CACHE.get(key)
+        if entry and (time.monotonic() - entry["ts"]) < entry["ttl"]:
+            return entry["value"]
+    return None
+
+
+def _cache_set(key: str, value, ttl: int = _DEFAULT_TTL):
+    with _CACHE_LOCK:
+        _CACHE[key] = {"value": value, "ts": time.monotonic(), "ttl": ttl}
+
 
 class AnalyticsService:
     @staticmethod
@@ -123,6 +146,10 @@ class AnalyticsService:
 
     @classmethod
     def get_kpis(cls, d_from: str, d_to: str, segments: str = None) -> dict:
+        cache_key = f"kpis|{d_from}|{d_to}|{segments}"
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return cached
         try:
             engine = get_engine()
             cte, join_clause = cls._build_segment_cte(segments)
@@ -160,13 +187,15 @@ class AnalyticsService:
             with engine.connect() as conn:
                 row = conn.execute(q, {"d1": d_from, "d2": d_to}).fetchone()
                 if row:
-                    return {
+                    result = {
                         "total_customers":  int(row[0] or 0),
                         "orders":           int(row[1] or 0),
                         "revenue":          float(row[2] or 0.0),
                         "aov":              float(row[3] or 0.0),
                         "churn_rate_pct":   round(float(row[4] or 0.0), 1),
                     }
+                    _cache_set(cache_key, result)
+                    return result
         except Exception as e:
             print(f"[AnalyticsService] Error during KPIs fetch: {e}")
         return {
@@ -177,6 +206,10 @@ class AnalyticsService:
 
     @classmethod
     def get_trend(cls, d_from: str, d_to: str, granularity: str = "Monthly", segments: str = None) -> dict:
+        cache_key = f"trend|{d_from}|{d_to}|{granularity}|{segments}"
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return cached
         trunc = "month" if granularity.lower() == "monthly" else "week"
         try:
             engine = get_engine()
@@ -201,7 +234,9 @@ class AnalyticsService:
                         "revenue": float(r[1] or 0.0),
                         "orders": int(r[2] or 0)
                     })
-                return {"granularity": granularity, "trend": data}
+                result = {"granularity": granularity, "trend": data}
+                _cache_set(cache_key, result)
+                return result
         except Exception as e:
             print(f"[AnalyticsService] Error during trend fetch: {e}")
         return {"granularity": granularity, "trend": []}
@@ -236,6 +271,10 @@ class AnalyticsService:
 
     @classmethod
     def get_products(cls, d_from: str, d_to: str, limit: int = 25, segments: str = None) -> dict:
+        cache_key = f"products|{d_from}|{d_to}|{limit}|{segments}"
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return cached
         try:
             engine = get_engine()
             cte, join_clause = cls._build_segment_cte(segments)
@@ -243,7 +282,7 @@ class AnalyticsService:
                 cte = cte + ", top_ids AS ("
             else:
                 cte = "WITH top_ids AS ("
-                
+
             sql = cte + """
                     SELECT product_id,
                            ROUND(SUM(sale_price)::numeric,2) AS revenue,
@@ -273,13 +312,19 @@ class AnalyticsService:
                         "revenue": float(r[3] or 0.0),
                         "units": int(r[4] or 0)
                     })
-                return {"products": data}
+                result = {"products": data}
+                _cache_set(cache_key, result)
+                return result
         except Exception as e:
             print(f"[AnalyticsService] Error during products fetch: {e}")
         return {"products": []}
 
     @classmethod
     def get_categories(cls, d_from: str, d_to: str, segments: str = None) -> dict:
+        cache_key = f"categories|{d_from}|{d_to}|{segments}"
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return cached
         try:
             engine = get_engine()
             cte, join_clause = cls._build_segment_cte(segments)
@@ -306,7 +351,9 @@ class AnalyticsService:
                         "orders": int(r[2] or 0),
                         "avg_price": float(r[3] or 0.0)
                     })
-                return {"categories": data}
+                result = {"categories": data}
+                _cache_set(cache_key, result)
+                return result
         except Exception as e:
             print(f"[AnalyticsService] Error during categories fetch: {e}")
         return {"categories": []}
