@@ -101,7 +101,23 @@ export function CustomerRFMTab() {
     const step = Math.max(1, Math.ceil(rawPareto.length / 100));
     const finalPareto = rawPareto.filter((_, idx) => idx % step === 0 || idx === rawPareto.length - 1);
 
-    return { rows: filteredRows, segCounts: computedSegCounts, segRevenue: computedSegRevenue, pareto: finalPareto };
+    const scatterSeries = SEGMENTS
+      .map((s) => {
+        const segLabel = `${s.emoji} ${s.label}`;
+        const pts = filteredRows
+          .filter((r) => r.segment === segLabel)
+          .map((r) => ({
+            ...r,
+            frequency: Number(r.frequency ?? 0),
+            monetary:  Number(r.monetary ?? 0),
+            recency:   Number(r.recency ?? 0),
+            count:     Math.max(1, Number((r as any).count ?? 1)),
+          }));
+        return pts.length > 0 ? { key: s.key, label: segLabel, data: pts } : null;
+      })
+      .filter(Boolean) as { key: string; label: string; data: any[] }[];
+
+    return { rows: filteredRows, segCounts: computedSegCounts, segRevenue: computedSegRevenue, pareto: finalPareto, scatterSeries };
   }, [allRows, selectedSegKeys]);
 
 
@@ -151,7 +167,11 @@ export function CustomerRFMTab() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Tooltip content={<TooltipBox />} />
-                  <Pie data={segRevenue} dataKey="revenue" nameKey="segment" innerRadius={60} outerRadius={100} paddingAngle={2} stroke="var(--color-background)" strokeWidth={2} isAnimationActive={false}>
+                  <Pie
+                    data={segRevenue.length > 0 ? segRevenue : [{ segment: "No data", revenue: 1 }]}
+                    dataKey="revenue" nameKey="segment" innerRadius={60} outerRadius={100}
+                    paddingAngle={2} stroke="var(--color-background)" strokeWidth={2} isAnimationActive={false}
+                  >
                     {segRevenue.map((e) => (
                       <Cell key={e.segment} fill={SEGMENT_COLORS[e.segment] ?? "var(--color-chart-1)"} />
                     ))}
@@ -169,28 +189,22 @@ export function CustomerRFMTab() {
         <h3 className="text-sm font-semibold">RFM Scatter — Frequency vs Monetary</h3>
         <p className="text-xs text-muted-foreground">Each dot = a customer group bin. Dot size = number of customers in bin.</p>
         <div className="mt-4 h-[380px]">
-          {rows.length === 0 ? (
+          {scatterSeries.length === 0 ? (
             <div className="grid h-full place-items-center text-xs text-muted-foreground">No scatter data — try selecting more segments</div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 8, right: 24, left: 8, bottom: 0 }}>
                 <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
                 <XAxis
-                  dataKey="frequency"
-                  name="Frequency"
-                  type="number"
+                  dataKey="frequency" name="Frequency" type="number"
                   tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
+                  tickLine={false} axisLine={false}
                   label={{ value: "Frequency (orders)", position: "insideBottom", offset: -4, fill: "var(--color-muted-foreground)", fontSize: 11 }}
                 />
                 <YAxis
-                  dataKey="monetary"
-                  name="Revenue"
-                  type="number"
+                  dataKey="monetary" name="Revenue" type="number"
                   tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
+                  tickLine={false} axisLine={false}
                   tickFormatter={(v) => `$${Math.round(v / 1000)}k`}
                 />
                 <ZAxis dataKey="count" range={[20, 400]} name="Customers in bin" />
@@ -207,30 +221,17 @@ export function CustomerRFMTab() {
                     </div>
                   );
                 }} />
-                {SEGMENTS.map((s) => {
-                  const segLabel = `${s.emoji} ${s.label}`;
-                  const segData = rows
-                    .filter((r) => r.segment === segLabel)
-                    .map((r) => ({
-                      ...r,
-                      frequency: Number(r.frequency ?? 0),
-                      monetary:  Number(r.monetary ?? 0),
-                      recency:   Number(r.recency ?? 0),
-                      // ZAxis dataKey="count" — must be a number, never undefined
-                      count: Math.max(1, Number((r as any).count ?? 1)),
-                    }));
-                  if (segData.length === 0) return null;
-                  return (
-                    <Scatter
-                      key={s.key}
-                      name={segLabel}
-                      data={segData}
-                      fill={SEGMENT_COLORS[segLabel] ?? "var(--color-chart-1)"}
-                      fillOpacity={0.75}
-                      isAnimationActive={false}
-                    />
-                  );
-                })}
+                {/* Pre-computed non-empty series — ScatterChart crashes if all children return null */}
+                {scatterSeries.map((s) => (
+                  <Scatter
+                    key={s.key}
+                    name={s.label}
+                    data={s.data}
+                    fill={SEGMENT_COLORS[s.label] ?? "var(--color-chart-1)"}
+                    fillOpacity={0.75}
+                    isAnimationActive={false}
+                  />
+                ))}
                 <Legend wrapperStyle={{ fontSize: 11, color: "var(--color-muted-foreground)" }} />
               </ScatterChart>
             </ResponsiveContainer>
