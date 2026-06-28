@@ -49,7 +49,8 @@ export function CustomerRFMTab() {
 
 
 
-  const allRows = rfmQ.data ?? [];
+  // Ensure rfmQ.data is always a proper array (api.rfm unwraps .rfm key)
+  const allRows = Array.isArray(rfmQ.data) ? rfmQ.data : [];
 
   // All heavy computations wrapped in useMemo — only re-runs when data or filter changes
   const { rows, segCounts, segRevenue, pareto } = React.useMemo(() => {
@@ -212,9 +213,11 @@ export function CustomerRFMTab() {
                     .filter((r) => r.segment === segLabel)
                     .map((r) => ({
                       ...r,
-                      frequency: Number(r.frequency),
-                      monetary:  Number(r.monetary),
-                      count:     Number((r as any).count ?? 1),
+                      frequency: Number(r.frequency ?? 0),
+                      monetary:  Number(r.monetary ?? 0),
+                      recency:   Number(r.recency ?? 0),
+                      // ZAxis dataKey="count" — must be a number, never undefined
+                      count: Math.max(1, Number((r as any).count ?? 1)),
                     }));
                   if (segData.length === 0) return null;
                   return (

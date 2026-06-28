@@ -105,12 +105,16 @@ export function ProductAnalyticsTab() {
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 15);
 
-    const treemapData = categories.slice(0, 30).map((c, i) => ({
-      name:  String(c.category),
-      size:  Number(c.revenue ?? 0),
-      value: Number(c.revenue ?? 0),
-      index: i,
-    }));
+    // Treemap — filter out zero-revenue categories (Treemap crashes on size=0)
+    const treemapData = categories
+      .slice(0, 30)
+      .map((c, i) => ({
+        name:  String(c.category),
+        size:  Math.max(1, Number(c.revenue ?? 0)),  // Treemap needs size > 0
+        value: Number(c.revenue ?? 0),
+        index: i,
+      }))
+      .filter((d) => d.value > 0);  // exclude zero-revenue categories
 
     const topProducts = products.slice(0, 25).map((p) => ({
       product: String(p.product ?? p.name ?? "Unknown"),

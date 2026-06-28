@@ -91,13 +91,16 @@ export function RevenueOverviewTab() {
   const k = kpisQ.data ?? {};
   
   const { trend, status } = useMemo(() => {
-    const t: TrendPoint[] = (trendQ.data ?? []).map((d) => ({
-      ...d,
-      period: String(d.period ?? ""),
-      revenue: Number(d.revenue ?? 0),
-      orders: Number(d.orders ?? 0),
-    }));
-    const s: StatusBreakdown[] = (statusQ.data ?? []).map((d: any) => ({
+    const t: TrendPoint[] = Array.isArray(trendQ.data)
+      ? trendQ.data.map((d) => ({
+          ...d,
+          period: String(d.period ?? ""),
+          revenue: Number(d.revenue ?? 0),
+          orders: Number(d.orders ?? 0),
+        }))
+      : [];
+    const rawStatus = Array.isArray(statusQ.data) ? statusQ.data : [];
+    const s: StatusBreakdown[] = rawStatus.map((d: any) => ({
       status: String(d.status ?? "unknown"),
       count: Number(d.count ?? d.cnt ?? 0),
       revenue: typeof d.revenue === "number" ? d.revenue : undefined,
@@ -188,7 +191,7 @@ export function RevenueOverviewTab() {
                 <PieChart>
                   <Tooltip content={<TooltipBox />} />
                   <Pie
-                    data={status}
+                    data={status.length > 0 ? status : [{ status: "No data", count: 1 }]}
                     dataKey="count"
                     nameKey="status"
                     innerRadius={60}
@@ -198,7 +201,7 @@ export function RevenueOverviewTab() {
                     strokeWidth={2}
                     isAnimationActive={false}
                   >
-                    {status.map((_, i) => (
+                    {(status.length > 0 ? status : [{}]).map((_, i) => (
                       <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
                     ))}
                   </Pie>

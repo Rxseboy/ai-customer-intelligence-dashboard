@@ -236,12 +236,20 @@ export const api = {
   dateBounds: () => request<DateBounds>("/api/insights/date-bounds"),
   kpis: (r: DateRange, segments?: string[]) => request<KpisResponse>("/api/insights/kpis", { query: { ...r, segments: segments?.join(",") } }),
   trend: (r: DateRange, granularity: Granularity = "monthly", segments?: string[]) =>
-    request<{trend: TrendPoint[]}>("/api/insights/trend", { query: { ...r, granularity, segments: segments?.join(",") } }).then(r => r.trend),
-  status: (r: DateRange, segments?: string[]) => request<{status_breakdown: StatusBreakdown[]}>("/api/insights/status", { query: { ...r, segments: segments?.join(",") } }).then(r => r.status_breakdown),
+    request<{trend: TrendPoint[]}>("/api/insights/trend", { query: { ...r, granularity, segments: segments?.join(",") } })
+      .then(res => Array.isArray(res?.trend) ? res.trend : []),
+  status: (r: DateRange, segments?: string[]) =>
+    request<{status_breakdown: StatusBreakdown[]}>("/api/insights/status", { query: { ...r, segments: segments?.join(",") } })
+      .then(res => Array.isArray(res?.status_breakdown) ? res.status_breakdown : []),
   products: (r: DateRange, limit = 20, segments?: string[]) =>
-    request<{products: ProductRow[]}>("/api/insights/products", { query: { ...r, limit, segments: segments?.join(",") } }).then(r => r.products),
-  categories: (r: DateRange, segments?: string[]) => request<{categories: CategoryRow[]}>("/api/insights/categories", { query: { ...r, segments: segments?.join(",") } }).then(r => r.categories),
-  rfm: (r: DateRange, segments?: string[]) => request<{rfm: RFMRow[]}>("/api/insights/rfm", { query: { ...r, segments: segments?.join(",") } }).then(r => r.rfm),
+    request<{products: ProductRow[]}>("/api/insights/products", { query: { ...r, limit, segments: segments?.join(",") } })
+      .then(res => Array.isArray(res?.products) ? res.products : []),
+  categories: (r: DateRange, segments?: string[]) =>
+    request<{categories: CategoryRow[]}>("/api/insights/categories", { query: { ...r, segments: segments?.join(",") } })
+      .then(res => Array.isArray(res?.categories) ? res.categories : []),
+  rfm: (r: DateRange, segments?: string[]) =>
+    request<{rfm: RFMRow[]}>("/api/insights/rfm", { query: { ...r, segments: segments?.join(",") } })
+      .then(res => Array.isArray(res?.rfm) ? res.rfm : []),
   segmentCategories: (r: DateRange, segments?: string[]) =>
     request<unknown>("/api/insights/segment-categories", { query: { ...r, segments: segments?.join(",") } }),
 
