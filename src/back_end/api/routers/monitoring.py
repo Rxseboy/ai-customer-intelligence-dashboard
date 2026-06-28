@@ -9,9 +9,42 @@ from src.back_end.api.services.model_cache import ModelCache, DRIFT_LOG_PATH, RE
 router = APIRouter(prefix="/monitoring/drift", tags=["Monitoring"])
 _model_cache = ModelCache()
 
+
+def _ensure_baseline():
+    """Create baseline_stats.json from current RFM data if it doesn't exist."""
+    if os.path.exists(BASELINE_PATH):
+        return True
+    try:
+        rfm = _model_cache.get_rfm()
+        if rfm is None or rfm.empty:
+            return False
+        stats = {}
+        for col in ["recency", "frequency", "monetary"]:
+            if col in rfm.columns:
+                stats[col] = {
+                    "mean": float(rfm[col].mean()),
+                    "std":  float(rfm[col].std()),
+                    "p25":  float(rfm[col].quantile(0.25)),
+                    "p75":  float(rfm[col].quantile(0.75)),
+                }
+        stats["created_at"] = datetime.utcnow().isoformat()
+        stats["n_customers"] = int(len(rfm))
+        os.makedirs(os.path.dirname(BASELINE_PATH), exist_ok=True)
+        with open(BASELINE_PATH, "w") as f:
+            json.dump(stats, f, indent=2)
+        print(f"[Monitoring] ✅ Baseline auto-created at {BASELINE_PATH}")
+        return True
+    except Exception as e:
+        print(f"[Monitoring] ⚠️ Could not create baseline: {e}")
+        return False
+
+
 @router.get("", response_model=DriftStatusResponse)
 def get_drift_status():
-    retrain_active = os.path.exists(RETRAIN_FLAG)
+    # Auto-create baseline if it doesn't exist yet
+    _ensure_baseline()
+
+    retrain_active  = os.path.exists(RETRAIN_FLAG)
     baseline_exists = os.path.exists(BASELINE_PATH)
 
     last_log = None
@@ -48,3 +81,4 @@ def run_drift_check():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Drift check failed: {e}")
+

@@ -132,7 +132,7 @@ export function RevenueOverviewTab() {
         />
         <KpiCard
           label="Unique Customers"
-          value={number(k.customers as number | undefined)}
+          value={number((k.total_customers ?? k.customers) as number | undefined)}
           icon={<Users className="h-4 w-4" />}
           loading={kpisQ.isLoading}
           accent="amber"

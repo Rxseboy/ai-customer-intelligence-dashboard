@@ -24,28 +24,29 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 def predict_churn(customer: CustomerRFM):
     """
     Predict churn probability for a single customer using RFM inputs.
-
-    Falls back to a recency-based heuristic when no model is available.
-    When a model exists, feature engineering is aligned with CHURN_FEATURES
-    from the training module so that feature order always matches the model.
+    Falls back to a calibrated recency-based heuristic when no model is available.
     """
     model = _model_cache.get_churn_model()
 
     if model is None:
-        # Heuristic fallback: higher recency → higher churn probability
-        churn_prob = min(1.0, customer.recency / 365)
+        # Calibrated heuristic: combine recency + frequency + monetary
+        recency_score  = min(1.0, customer.recency / 180.0)          # 0–1: 180+ days = max risk
+        freq_score     = max(0.0, 1.0 - customer.frequency / 20.0)   # high freq = low risk
+        monetary_score = max(0.0, 1.0 - customer.monetary / 2000.0)  # high spend = low risk
+        churn_prob = min(1.0, (recency_score * 0.6) + (freq_score * 0.25) + (monetary_score * 0.15))
     else:
-        aov = customer.avg_order_value or (customer.monetary / max(customer.frequency, 1))
+        aov     = customer.avg_order_value or (customer.monetary / max(customer.frequency, 1))
         avg_days = 365 / max(customer.frequency, 1)
-        decay = max(0.0, 1.0 - (customer.recency / 365.0))
+        decay   = max(0.0, 1.0 - (customer.recency / 365.0))
 
-        expected_90d = customer.frequency * (90.0 / 365.0)
-        orders_last_90d = max(0, int(round(expected_90d * decay)))
-        orders_prev_90d = max(0, int(round(expected_90d * min(1.0, 1.5 - decay))))
-        purchase_trend = orders_last_90d - orders_prev_90d
+        expected_90d    = customer.frequency * (90.0 / 365.0)
+        orders_last_90d  = max(0, int(round(expected_90d * decay)))
+        orders_prev_90d  = max(0, int(round(expected_90d * min(1.0, 1.5 - decay))))
+        purchase_trend   = orders_last_90d - orders_prev_90d
 
-        # Build feature dict — keys match CHURN_FEATURES ordering exactly
+        # Build feature dict — include recency so model can use it if trained with it
         feature_values = {
+            "recency":                 customer.recency,
             "frequency":               customer.frequency,
             "monetary":                customer.monetary,
             "avg_order_value":         aov,
@@ -65,19 +66,25 @@ def predict_churn(customer: CustomerRFM):
             model_features = list(feature_values.keys())
 
         feature_row = np.array([[feature_values.get(f, 0.0) for f in model_features]])
-        churn_prob = float(model.predict_proba(feature_row)[0][1])
+        raw_prob = float(model.predict_proba(feature_row)[0][1])
+
+        # Blend model output with heuristic to prevent extreme calibration collapse
+        recency_score = min(1.0, customer.recency / 180.0)
+        freq_score    = max(0.0, 1.0 - customer.frequency / 20.0)
+        heuristic     = min(1.0, (recency_score * 0.6) + (freq_score * 0.4))
+        churn_prob    = (raw_prob * 0.7) + (heuristic * 0.3)
 
     # Risk classification thresholds
     if churn_prob >= 0.6:
-        risk = "\U0001f534 High"
+        risk = "🔴 High"
         prediction = "CHURN"
         message = "Customer berisiko tinggi churn. Kirim promo re-engagement segera."
     elif churn_prob >= 0.3:
-        risk = "\U0001f7e1 Medium"
+        risk = "🟡 Medium"
         prediction = "AT RISK"
         message = "Customer menunjukkan tanda-tanda penurunan. Monitor closely."
     else:
-        risk = "\U0001f7e2 Low"
+        risk = "🟢 Low"
         prediction = "RETAINED"
         message = "Customer aktif dan cenderung tetap loyal."
 
@@ -88,6 +95,7 @@ def predict_churn(customer: CustomerRFM):
         recency_days=customer.recency,
         message=message,
     )
+
 
 
 @router.post("/segment", response_model=SegmentResponse)
